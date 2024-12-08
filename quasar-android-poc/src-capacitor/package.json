@@ -1,0 +1,16 @@
+{
+  "name": "quasar-poc",
+  "version": "0.0.1",
+  "description": "A Poc of Quasar",
+  "author": "Dimitar Iliev <dimitar.iliev@accedia.com>",
+  "private": true,
+  "dependencies": {
+    "@capacitor-community/barcode-scanner": "^4.0.1",
+    "@capacitor/android": "^6.2.0",
+    "@capacitor/app": "^6.0.0",
+    "@capacitor/cli": "^6.0.0",
+    "@capacitor/core": "^6.0.0",
+    "@capacitor/geolocation": "^6.0.2",
+    "@capacitor/network": "^6.0.3"
+  }
+}
