@@ -17,7 +17,7 @@
     <p>Network status: {{ status }}</p>
     <!-- <q-btn @click="testVisible = !testVisible" color="primary" label="Toggle" /> -->
 
-    <!-- <q-btn @click="startScan" color="primary" label="Scan barcode" /> -->
+    <q-btn @click="startScan" color="primary" label="Scan barcode" />
     <q-btn
       @click="isCoordanatesVisible = !isCoordanatesVisible"
       color="primary"
@@ -32,7 +32,7 @@
 import { getProducts } from 'src/services/productsService'
 import { Geolocation } from '@capacitor/geolocation'
 import { Network } from '@capacitor/network'
-// import { BarcodeScanner } from '@capacitor-community/barcode-scanner'
+import { BarcodeScanner } from '@capacitor-community/barcode-scanner'
 // import { useProductStore } from 'src/stores/productsStore'
 // import { useNetwork } from '@vueuse/core'
 // import { reactive } from 'vue'
@@ -126,19 +126,19 @@ export default {
       const { type } = e
       this.onLine = type === 'online'
     },
-    // async startScan() {
-    //   await BarcodeScanner.checkPermission({ force: true })
+    async startScan() {
+      await BarcodeScanner.checkPermission({ force: true })
 
-    //   BarcodeScanner.hideBackGround()
-    //   this.isGridVisible = false
-    //   const result = await BarcodeScanner.startScan() // start scanning and wait for a result
+      BarcodeScanner.hideBackGround()
+      this.isGridVisible = false
+      const result = await BarcodeScanner.startScan() // start scanning and wait for a result
 
-    //   // if the result has content
-    //   if (result.hasContent) {
-    //     this.scannedContent = result.content // log the raw scanned content
-    //     this.isGridVisible = true
-    //   }
-    // },
+      // if the result has content
+      if (result.hasContent) {
+        this.scannedContent = result.content // log the raw scanned content
+        this.isGridVisible = true
+      }
+    },
   },
   watch: {
     isOnline(v) {
@@ -146,6 +146,7 @@ export default {
     },
   },
   async created() {
+    this.status = await Network.getStatus()
     await Network.addListener('networkStatusChange', (status) => {
       this.status = status
       console.log('Network status changed', status)
