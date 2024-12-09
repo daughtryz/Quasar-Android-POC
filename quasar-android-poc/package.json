@@ -16,8 +16,10 @@
   },
   "dependencies": {
     "@capacitor-community/barcode-scanner": "^4.0.1",
+    "@capacitor-community/sqlite": "^6.0.2",
     "@capacitor/geolocation": "^6.0.2",
     "@capacitor/network": "^6.0.3",
+    "@capacitor/preferences": "^6.0.3",
     "@chenfengyuan/vue-barcode": "^2.0.2",
     "@quasar/extras": "^1.16.4",
     "@vueuse/components": "^12.0.0",

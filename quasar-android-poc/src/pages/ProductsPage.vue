@@ -23,16 +23,28 @@
       color="primary"
       label="Load coordinates"
     />
+    <q-table
+      loading-label="Products are loading"
+      :loading="isLoading"
+      title="Products"
+      :rows="products"
+      :columns="columns"
+      row-key="name"
+    />
 
-    <q-table title="Products" :rows="products" :columns="columns" row-key="name" />
+    <q-input v-model="newTitle" type="text" label="Enter new title for id 1" />
+    <q-btn @click="editProductFromPage" color="primary" label="Edit product with id 1" />
   </div>
 </template>
 
 <script>
-import { getProducts } from 'src/services/productsService'
+import { getProducts, editProduct } from 'src/services/productsService'
 import { Geolocation } from '@capacitor/geolocation'
 import { Network } from '@capacitor/network'
 import { BarcodeScanner } from '@capacitor-community/barcode-scanner'
+import { Preferences } from '@capacitor/preferences'
+import { storeRequest, sendRequests } from 'src/services/offlineManagerService'
+// import { useDatabaseStore } from 'src/stores/databaseStore'
 // import { useProductStore } from 'src/stores/productsStore'
 // import { useNetwork } from '@vueuse/core'
 // import { reactive } from 'vue'
@@ -63,6 +75,7 @@ const columns = [
 export default {
   setup() {
     const network = useNetwork()
+    // const databaseStore = useDatabaseStore()
     return { network }
   },
   data() {
@@ -70,6 +83,7 @@ export default {
       products: [],
       columns,
       isGridVisible: true,
+      isLoading: false,
       showBackOnline: false,
       isQRCodeVisible: false,
       geolocation: {},
@@ -77,6 +91,7 @@ export default {
       testVisible: false,
       status: false,
       position: {},
+      newTitle: '',
       posTest: 'test',
       geoId: '',
       scannedContent: '',
@@ -86,13 +101,61 @@ export default {
   },
   methods: {
     async getLoadedProducts() {
-      this.products = await getProducts()
-      console.log(this.products)
+      this.isLoading = true
+      if (!this.status.connected || this.status.connectionType === 'none') {
+        setTimeout(async () => {
+          console.log('Getting data from local store')
+          const products = JSON.parse(await this.getLocalData('products'))
+          this.isLoading = false
+          this.products = products
+        }, '3000')
+      } else {
+        setTimeout(async () => {
+          console.log('Getting data from the API')
+          this.products = await getProducts()
+          this.isLoading = false
+          await this.setLocalData(this.products, 'products')
+        }, '3000')
+      }
+    },
+    async editProductFromPage() {
+      const currentProduct = this.products.find((x) => x.id === 1)
+      console.log(currentProduct)
+      currentProduct.title = this.newTitle
+
+      // if (this.status.connected) {
+      //   let url = `products/${currentProduct.id}`
+      //   let data = currentProduct
+      //   let type = 'put'
+      //   await storeRequest(url, type, data)
+      // } else {
+      //   await editProduct(currentProduct.id, currentProduct)
+      // }
+
+      if (!this.status.connected || this.status.connectionType === 'none') {
+        let url = `products/${currentProduct.id}`
+        let data = currentProduct
+        let type = 'put'
+        await storeRequest(url, type, data)
+      } else {
+        await editProduct(currentProduct.id, currentProduct)
+      }
     },
     async logNetworkStatus() {
       this.status = await Network.getStatus()
 
       console.log('Network status:', this.status)
+    },
+    async setLocalData(dataToStore, key) {
+      await Preferences.set({
+        key,
+        value: JSON.stringify(dataToStore),
+      })
+    },
+    async getLocalData(key) {
+      const { value } = await Preferences.get({ key })
+      console.log(value)
+      return value
     },
     async getCurrentPosition() {
       try {
@@ -140,15 +203,14 @@ export default {
       }
     },
   },
-  watch: {
-    isOnline(v) {
-      console.log('in the watcher', v)
-    },
-  },
   async created() {
+    // sendRequests()
     this.status = await Network.getStatus()
-    await Network.addListener('networkStatusChange', (status) => {
+    await Network.addListener('networkStatusChange', async (status) => {
       this.status = status
+      if (this.status.connected) {
+        await sendRequests()
+      }
       console.log('Network status changed', status)
     })
     //console.log(this.isOnline)
