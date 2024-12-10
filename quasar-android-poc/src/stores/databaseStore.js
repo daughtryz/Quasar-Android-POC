@@ -17,9 +17,10 @@ export const useDatabaseStore = defineStore('databaseStore', {
 
       const schema = `CREATE TABLE IF NOT EXISTS OfflineRequests(
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        type VARCHAR(20) NOT NULL)
-        data VARCHAR(MAX) NOT NULL,
-        url VARCHAR(MAX) NOT NULL`
+        type VARCHAR(20) NOT NULL
+        data VARCHAR(MAX) NOT NULL
+        url VARCHAR(MAX) NOT NULL
+        createdAt DATETIME NOT NULL)`
 
       await this.database.execute(schema)
 
