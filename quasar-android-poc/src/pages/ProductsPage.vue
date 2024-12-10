@@ -8,16 +8,17 @@
     </template>
     <p>{{ position }}</p>
     <!-- <p>{{ network.isOnline }}</p> -->
-    <p v-if="scannedContent">Content from the barcode: {{ scannedContent }}</p>
+    <!-- <p v-if="scannedContent">Content from the barcode: {{ scannedContent }}</p> -->
     <!-- <qrcode-vue v-if="isQRCodeVisible" :value="qrCodeValue"></qrcode-vue> -->
 
     <q-btn @click="getLoadedProducts" color="primary" label="Load products" />
-    <q-btn @click="addProduct" color="primary" label="Add Product" />
     <q-btn @click="logNetworkStatus" color="primary" label="Log network status" />
     <p>Network status: {{ status }}</p>
     <!-- <q-btn @click="testVisible = !testVisible" color="primary" label="Toggle" /> -->
-
-    <q-btn @click="startScan" color="primary" label="Scan barcode" />
+    <template v-if="isCapacitor">
+      <q-btn @click="startScan" color="primary" label="Scan barcode" />
+      <p v-if="scannedContent">Content from the barcode: {{ scannedContent }}</p>
+    </template>
     <q-btn
       @click="isCoordanatesVisible = !isCoordanatesVisible"
       color="primary"
@@ -31,7 +32,8 @@
       :columns="columns"
       row-key="name"
     />
-
+    <p v-if="status">You are online.</p>
+    <p v-else>You are offline.</p>
     <q-input v-model="newTitle" type="text" label="Enter new title for id 1" />
     <q-btn @click="editProductFromPage" color="primary" label="Edit product with id 1" />
   </div>
@@ -87,6 +89,7 @@ export default {
       showBackOnline: false,
       isQRCodeVisible: false,
       geolocation: {},
+      isCapacitor: process.env.MODE === 'capacitor',
       isOnline: this.network.isOnline.value,
       testVisible: false,
       status: false,
@@ -159,20 +162,38 @@ export default {
     },
     async getCurrentPosition() {
       try {
-        const permissionStatus = await Geolocation.requestPermissions()
+        if (process.env.MODE === 'capacitor') {
+          const permissionStatus = await Geolocation.requestPermissions()
 
-        if (permissionStatus?.location != 'granted') {
-          const requestStatus = await Geolocation.requestPermissions()
-          if (requestStatus.location != 'granted') {
-            return null
+          if (permissionStatus?.location != 'granted') {
+            const requestStatus = await Geolocation.requestPermissions()
+            if (requestStatus.location != 'granted') {
+              return null
+            }
           }
+          let options = {
+            maximumAge: 3000,
+            timeout: 10000,
+            enableHighAccuracy: true,
+          }
+          this.position = await Geolocation.getCurrentPosition(options)
+        } else {
+          this.position = await Geolocation.getCurrentPosition()
         }
-        let options = {
-          maximumAge: 3000,
-          timeout: 10000,
-          enableHighAccuracy: true,
-        }
-        this.position = await Geolocation.getCurrentPosition(options)
+        // const permissionStatus = await Geolocation.requestPermissions()
+
+        // if (permissionStatus?.location != 'granted') {
+        //   const requestStatus = await Geolocation.requestPermissions()
+        //   if (requestStatus.location != 'granted') {
+        //     return null
+        //   }
+        // }
+        // let options = {
+        //   maximumAge: 3000,
+        //   timeout: 10000,
+        //   enableHighAccuracy: true,
+        // }
+        // this.position = await Geolocation.getCurrentPosition(options)
         console.log(this.position)
       } catch (ex) {
         console.log('Error happened', ex)
@@ -202,17 +223,28 @@ export default {
         this.isGridVisible = true
       }
     },
+    updateNetworkStatus() {
+      console.log('Updated')
+      this.status = navigator.onLine
+    },
   },
   async created() {
     // sendRequests()
-    this.status = await Network.getStatus()
-    await Network.addListener('networkStatusChange', async (status) => {
-      this.status = status
-      if (this.status.connected) {
-        await sendRequests()
-      }
-      console.log('Network status changed', status)
-    })
+    if (process.env.MODE === 'capacitor') {
+      this.status = await Network.getStatus()
+      await Network.addListener('networkStatusChange', async (status) => {
+        this.status = status
+        if (this.status.connected) {
+          await sendRequests()
+        }
+        console.log('Network status changed', status)
+      })
+    } else {
+      this.status = navigator.onLine
+      console.log(navigator)
+      window.addEventListener('online', this.updateNetworkStatus)
+      window.addEventListener('offline', this.updateNetworkStatus)
+    }
     //console.log(this.isOnline)
     await this.getCurrentPosition()
     this.geoId = await Geolocation.watchPosition({}, (newPosition) => {
@@ -222,7 +254,8 @@ export default {
   },
   beforeUnmount() {
     Geolocation.clearWatch(this.geoId)
-
+    window.removeEventListener('online', this.updateNetworkStatus)
+    window.removeEventListener('offline', this.updateNetworkStatus)
     // window.removeEventListener('online', this.updateOnlineStatus)
     // window.removeEventListener('offline', this.updateOnlineStatus)
   },
