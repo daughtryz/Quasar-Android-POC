@@ -45,8 +45,8 @@ import { Geolocation } from '@capacitor/geolocation'
 import { Network } from '@capacitor/network'
 import { BarcodeScanner } from '@capacitor-community/barcode-scanner'
 import { Preferences } from '@capacitor/preferences'
-import { storeRequest, sendRequests } from 'src/services/offlineManagerService'
-// import { useDatabaseStore } from 'src/stores/databaseStore'
+// import { storeRequest, sendRequests } from 'src/services/offlineManagerService'
+import { useDatabaseStore } from 'src/stores/databaseStore'
 // import { useProductStore } from 'src/stores/productsStore'
 // import { useNetwork } from '@vueuse/core'
 // import { reactive } from 'vue'
@@ -77,8 +77,8 @@ const columns = [
 export default {
   setup() {
     const network = useNetwork()
-    // const databaseStore = useDatabaseStore()
-    return { network }
+    const databaseStore = useDatabaseStore()
+    return { network, databaseStore }
   },
   data() {
     return {
@@ -105,10 +105,12 @@ export default {
   methods: {
     async getLoadedProducts() {
       this.isLoading = true
-      if (!this.status.connected || this.status.connectionType === 'none') {
+      console.log(this.status)
+      if (!this.status.connected) {
         setTimeout(async () => {
           console.log('Getting data from local store')
-          const products = JSON.parse(await this.getLocalData('products'))
+          const products = await this.databaseStore.getLocalData()
+          console.log(products)
           this.isLoading = false
           this.products = products
         }, '3000')
@@ -117,7 +119,7 @@ export default {
           console.log('Getting data from the API')
           this.products = await getProducts()
           this.isLoading = false
-          await this.setLocalData(this.products, 'products')
+          await this.databaseStore.insertLocalData(this.products)
         }, '3000')
       }
     },
@@ -126,20 +128,11 @@ export default {
       console.log(currentProduct)
       currentProduct.title = this.newTitle
 
-      // if (this.status.connected) {
-      //   let url = `products/${currentProduct.id}`
-      //   let data = currentProduct
-      //   let type = 'put'
-      //   await storeRequest(url, type, data)
-      // } else {
-      //   await editProduct(currentProduct.id, currentProduct)
-      // }
-
-      if (!this.status.connected || this.status.connectionType === 'none') {
+      if (!this.status.connected && this.status.connectionType === 'none') {
         let url = `products/${currentProduct.id}`
-        let data = currentProduct
+        let data = JSON.stringify(currentProduct)
         let type = 'put'
-        await storeRequest(url, type, data)
+        await this.databaseStore.storeOfflineRequest(url, type, data)
       } else {
         await editProduct(currentProduct.id, currentProduct)
       }
@@ -180,20 +173,6 @@ export default {
         } else {
           this.position = await Geolocation.getCurrentPosition()
         }
-        // const permissionStatus = await Geolocation.requestPermissions()
-
-        // if (permissionStatus?.location != 'granted') {
-        //   const requestStatus = await Geolocation.requestPermissions()
-        //   if (requestStatus.location != 'granted') {
-        //     return null
-        //   }
-        // }
-        // let options = {
-        //   maximumAge: 3000,
-        //   timeout: 10000,
-        //   enableHighAccuracy: true,
-        // }
-        // this.position = await Geolocation.getCurrentPosition(options)
         console.log(this.position)
       } catch (ex) {
         console.log('Error happened', ex)
@@ -229,23 +208,14 @@ export default {
     },
   },
   async created() {
-    // sendRequests()
-    if (process.env.MODE === 'capacitor') {
-      this.status = await Network.getStatus()
-      await Network.addListener('networkStatusChange', async (status) => {
-        this.status = status
-        if (this.status.connected) {
-          await sendRequests()
-        }
-        console.log('Network status changed', status)
-      })
-    } else {
-      this.status = navigator.onLine
-      console.log(navigator)
-      window.addEventListener('online', this.updateNetworkStatus)
-      window.addEventListener('offline', this.updateNetworkStatus)
-    }
-    //console.log(this.isOnline)
+    this.status = await Network.getStatus()
+    await Network.addListener('networkStatusChange', async (status) => {
+      this.status = status
+      if (this.status.connected) {
+        await this.databaseStore.sendRequests()
+      }
+      console.log('Network status changed', status)
+    })
     await this.getCurrentPosition()
     this.geoId = await Geolocation.watchPosition({}, (newPosition) => {
       console.log('New GPS position')
@@ -254,10 +224,6 @@ export default {
   },
   beforeUnmount() {
     Geolocation.clearWatch(this.geoId)
-    window.removeEventListener('online', this.updateNetworkStatus)
-    window.removeEventListener('offline', this.updateNetworkStatus)
-    // window.removeEventListener('online', this.updateOnlineStatus)
-    // window.removeEventListener('offline', this.updateOnlineStatus)
   },
 }
 </script>

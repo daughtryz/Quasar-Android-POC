@@ -4,19 +4,19 @@
 
 <script>
 import { useProductStore } from './stores/productsStore'
-// import { useDatabaseStore } from './stores/databaseStore'
+import { useDatabaseStore } from './stores/databaseStore'
 
 export default {
   setup() {
     const productStore = useProductStore()
-    // const databaseStore = useDatabaseStore()
+    const databaseStore = useDatabaseStore()
     return {
       productStore,
+      databaseStore,
     }
   },
   async created() {
-    console.log(process.env)
-    // await this.databaseStore.initializePlugin()
+    await this.databaseStore.initializePlugin()
   },
 }
 </script>
